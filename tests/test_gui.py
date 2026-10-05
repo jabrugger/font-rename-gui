@@ -35,7 +35,7 @@ class GuiTests(unittest.TestCase):
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.folder = Path(self.temp.name)
+        self.folder = Path(self.temp.name).resolve()
         self.window = MainWindow(persist=False)
 
     def tearDown(self):
