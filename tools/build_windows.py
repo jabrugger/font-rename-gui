@@ -1,6 +1,7 @@
 """Build a portable directory with a separate, console-capable engine."""
 import importlib.metadata
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -11,10 +12,17 @@ DIST = ROOT / 'dist'
 
 
 def build(name, script, extra):
-    subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--onedir',
+    # Unrelated tools on PATH can supply incompatible DLLs with the same name
+    # (for example Poppler's ICU instead of Windows' ICU used by Qt).
+    windows = Path(os.environ.get('WINDIR', 'C:/Windows'))
+    environment = dict(os.environ)
+    environment['PATH'] = os.pathsep.join(str(p) for p in (
+        Path(sys.executable).parent, Path(sys.base_prefix),
+        Path(sys.base_prefix)/'DLLs', windows/'System32', windows))
+    subprocess.run([sys.executable, '-m', 'PyInstaller', '--clean', '--noconfirm', '--onedir',
                     '--name', name, '--distpath', str(DIST),
                     '--workpath', str(ROOT/'build'/name), '--specpath', str(ROOT/'build'),
-                    *extra, str(ROOT/script)], cwd=ROOT, check=True)
+                    *extra, str(ROOT/script)], cwd=ROOT, env=environment, check=True)
 
 
 def main():
