@@ -5,7 +5,7 @@ from pathlib import Path
 from importlib.metadata import version
 
 from PySide6.QtCore import QLocale, QSettings, Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QFont, QTextCursor
+from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,
     QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
     QPlainTextEdit, QProgressBar, QPushButton, QSplitter, QVBoxLayout, QWidget)
@@ -16,13 +16,18 @@ from .runner import EngineRunner
 
 TEXT = {
  'es': {
-  'subtitle':'Ordená tu colección de fuentes.', 'folders':'Carpetas',
-  'folders_hint':'Incluye las subcarpetas. Los respaldos BAK quedan excluidos.',
-  'add':'Agregar carpeta', 'remove':'Quitar', 'options':'Opciones',
+  'subtitle':'Ordená tu colección de fuentes.', 'folders':'Carpeta',
+  'folders_hint':'Elegí una carpeta. Los respaldos BAK quedan excluidos.',
+  'recursive':'Incluir subcarpetas',
+  'skip_preview':'Aplicar sin vista previa',
+  'skip_preview_tip':'Permite aplicar directamente a la carpeta elegida. Siempre solicita confirmación antes de modificar archivos.',
+  'add':'Elegir carpeta', 'remove':'Quitar', 'options':'Opciones',
   'normalize':'Limpiar nombres internos', 'normalize_tip':'Conserva el original en una subcarpeta BAK.',
   'dedup':'Eliminar duplicados idénticos', 'dedup_tip':'Solo elimina copias con exactamente los mismos bytes.',
   'transliterate':'Transliterar nombres', 'transliterate_tip':'Agrega un nombre latino y conserva el original entre corchetes.',
-  'save_log':'Guardar log completo', 'log_hint':'Automático en la primera carpeta seleccionada',
+  'transliterate_help':'Solo se aplica a nombres en otros alfabetos (chino, árabe, coreano, etc.). Agrega una transliteración latina y conserva el nombre original entre corchetes; los nombres latinos no se transliteran.',
+  'save_log':'Guardar log completo', 'log_hint':'Automático: BAK de cada carpeta procesada',
+  'clear_tip':'Borra únicamente el texto de Actividad. No borra los archivos de log.',
   'browse_log':'Elegir archivo de log', 'output':'Actividad', 'clear':'Limpiar pantalla',
   'output_hint':'La pantalla conserva las últimas 3.000 líneas. El log guarda la salida completa.',
   'empty':'Agregá una carpeta y revisá la vista previa antes de aplicar cambios.',
@@ -31,21 +36,26 @@ TEXT = {
   'cancelling':'Cancelando al terminar la fuente en curso…', 'cancelled':'Cancelado. Los cambios terminados se conservan.',
   'preview_done':'Vista previa terminada. Podés aplicar los cambios.', 'preview_issues':'Vista previa terminada con errores. Revisá el log.',
   'done':'Ejecución terminada.', 'issues':'Ejecución terminada con errores. Revisá el log.', 'failed':'No se pudo ejecutar el motor.',
-  'confirm_title':'Aplicar cambios',
-  'confirm':'Se renombrarán archivos y se aplicarán las opciones seleccionadas.\nLos respaldos BAK cubren cambios internos; el borrado de duplicados no tiene deshacer.\n\n¿Aplicar a las carpetas de la vista previa?',
+  'confirm_title':'Confirmar ejecución',
+  'confirm':'¿Está seguro de ejecutar el proceso sobre la carpeta seleccionada?\n\nSegún las opciones elegidas, el proceso puede renombrar archivos, modificar nombres internos y eliminar duplicados idénticos.\nLos respaldos BAK cubren cambios internos; el borrado de duplicados no tiene deshacer.',
   'invalid':'Revisá la selección', 'close_title':'Ejecución en curso',
   'close':'Para cerrar, se cancelará entre fuentes. Los cambios ya terminados se conservarán. ¿Solicitar la cancelación?',
   'summary':'{changes} cambios · {duplicates} duplicados · {errors} errores',
   'select_folder':'Elegir carpeta de fuentes', 'choose_log':'Guardar log', 'idle':'PREVIEW FIRST',
  },
  'en': {
-  'subtitle':'Bring order to your font collection.', 'folders':'Folders',
-  'folders_hint':'Includes subfolders. BAK backups are excluded.',
-  'add':'Add folder', 'remove':'Remove', 'options':'Options',
+  'subtitle':'Bring order to your font collection.', 'folders':'Folder',
+  'folders_hint':'Choose one folder. BAK backups are excluded.',
+  'recursive':'Include subfolders',
+  'skip_preview':'Apply without preview',
+  'skip_preview_tip':'Allows applying directly to the selected folder. Always asks for confirmation before modifying files.',
+  'add':'Choose folder', 'remove':'Remove', 'options':'Options',
   'normalize':'Clean internal names', 'normalize_tip':'Keeps the original in a BAK subfolder.',
   'dedup':'Remove identical duplicates', 'dedup_tip':'Only removes copies with exactly the same bytes.',
   'transliterate':'Transliterate names', 'transliterate_tip':'Adds a Latin name and keeps the original in brackets.',
-  'save_log':'Save complete log', 'log_hint':'Automatic in the first selected folder',
+  'transliterate_help':'Only applies to names in other writing systems (Chinese, Arabic, Korean, etc.). Adds a Latin transliteration and keeps the original name in brackets; Latin names are not transliterated.',
+  'save_log':'Save complete log', 'log_hint':'Automatic: BAK in each processed folder',
+  'clear_tip':'Clears only the Activity display. Does not delete log files.',
   'browse_log':'Choose log file', 'output':'Activity', 'clear':'Clear screen',
   'output_hint':'The screen keeps the latest 3,000 lines. The log keeps the complete output.',
   'empty':'Add a folder and review the preview before applying changes.',
@@ -54,8 +64,8 @@ TEXT = {
   'cancelling':'Cancelling after the current font…', 'cancelled':'Cancelled. Completed changes are retained.',
   'preview_done':'Preview finished. You can apply changes.', 'preview_issues':'Preview finished with errors. Review the log.',
   'done':'Run finished.', 'issues':'Run finished with errors. Review the log.', 'failed':'The engine could not be started.',
-  'confirm_title':'Apply changes',
-  'confirm':'Files will be renamed and selected options applied.\nBAK backups cover internal changes; duplicate removal has no undo.\n\nApply to the folders in this preview?',
+  'confirm_title':'Confirm execution',
+  'confirm':'Are you sure you want to run the process on the selected folder?\n\nDepending on the selected options, the process may rename files, modify internal names and remove identical duplicates.\nBAK backups cover internal changes; duplicate removal has no undo.',
   'invalid':'Check your selection', 'close_title':'Run in progress',
   'close':'Closing requests cancellation between fonts. Completed changes will be retained. Request cancellation?',
   'summary':'{changes} changes · {duplicates} duplicates · {errors} errors',
@@ -83,6 +93,7 @@ QPushButton#primary:hover { background:#f0cc94; }
 QPushButton#primary:disabled { background:#574d3d; color:#a39784; border-color:#574d3d; }
 QCheckBox { padding:3px 0; spacing:9px; min-height:24px; }
 QCheckBox::indicator { width:16px; height:16px; }
+QCheckBox::indicator:unchecked { border:1px solid #647083; border-radius:3px; background:#171c23; }
 QComboBox { background:#252e3a; padding:6px 12px; border:1px solid #465263; border-radius:5px; }
 QComboBox QAbstractItemView { background:#252e3a; selection-background-color:#465263; }
 QProgressBar { background:#252e3a; border:0; border-radius:3px; max-height:5px; }
@@ -111,6 +122,7 @@ class MainWindow(QMainWindow):
         self.close_pending = False
         self.result = None
         self.setWindowTitle('Font Renamer')
+        self.setWindowIcon(QIcon(str(Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))/'assets'/'font-renamer.ico')))
         self.resize(1120, 850)
         self.setMinimumSize(940, 700)
         self.setStyleSheet(STYLE)
@@ -120,6 +132,8 @@ class MainWindow(QMainWindow):
             for folder in self.settings.value('folders', [], type=list):
                 if Path(folder).is_dir():
                     self.folders.addItem(folder)
+                    break
+            self.recursive.setChecked(self.settings.value('recursive', True, type=bool))
             for key, checkbox in self.checkboxes.items():
                 checkbox.setChecked(self.settings.value(key, True, type=bool))
             self.log_path.setText(self.settings.value('log_path', ''))
@@ -182,6 +196,16 @@ class MainWindow(QMainWindow):
         split = QSplitter(Qt.Orientation.Horizontal)
         folders_panel, fl = self._panel('folders')
         fl.addWidget(self._label('folders_hint'))
+        self.recursive = QCheckBox()
+        self.recursive.setChecked(True)
+        self.recursive.toggled.connect(self._invalidate_preview)
+        self.labels.append((self.recursive, 'recursive'))
+        fl.addWidget(self.recursive)
+        self.skip_preview = QCheckBox()
+        self.skip_preview.setChecked(False)
+        self.skip_preview.toggled.connect(self._invalidate_preview)
+        self.labels.append((self.skip_preview, 'skip_preview'))
+        fl.addWidget(self.skip_preview)
         self.folders = QListWidget()
         self.folders.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.folders.itemSelectionChanged.connect(self._refresh_controls)
@@ -232,6 +256,9 @@ class MainWindow(QMainWindow):
         self.output.setMaximumBlockCount(3000)
         self.output.setFont(QFont('Consolas', 10))
         self.output.setPlaceholderText(self.t('empty'))
+        self.checkboxes['transliterate'].setToolTip(self.t('transliterate_help'))
+        self.clear_button.setToolTip(self.t('clear_tip'))
+        self.skip_preview.setToolTip(self.t('skip_preview_tip'))
         al.addWidget(self.output, 1)
         layout.addWidget(activity_panel, 4)
         self.progress = QProgressBar()
@@ -283,10 +310,10 @@ class MainWindow(QMainWindow):
     def options(self):
         return Options(self.checkboxes['normalize'].isChecked(), self.checkboxes['dedup'].isChecked(),
                        self.checkboxes['transliterate'].isChecked(), self.checkboxes['save_log'].isChecked(),
-                       self.log_path.text())
+                       self.log_path.text(), self.recursive.isChecked())
 
     def signature(self):
-        return (tuple(self.folder_paths()), self.options())
+        return (tuple(self.folder_paths()), self.options(), self.skip_preview.isChecked())
 
     def _busy(self):
         return self.runner is not None
@@ -303,18 +330,21 @@ class MainWindow(QMainWindow):
             return
         busy = self._busy()
         self.preview_button.setEnabled(not busy and self.folders.count() > 0)
-        self.apply_button.setEnabled(not busy and self.preview_signature == self.signature())
+        self.apply_button.setEnabled(not busy and self.folders.count() > 0 and
+            (self.skip_preview.isChecked() or self.preview_signature == self.signature()))
         self.cancel_button.setEnabled(busy and not (self.cancel_file and self.cancel_file.exists()))
         self.add_button.setEnabled(not busy)
         self.remove_button.setEnabled(not busy and bool(self.folders.selectedItems()))
         self.folders.setEnabled(not busy)
+        self.recursive.setEnabled(not busy)
+        self.skip_preview.setEnabled(not busy)
         for checkbox in self.checkboxes.values():
             checkbox.setEnabled(not busy)
         save_log = self.checkboxes['save_log'].isChecked()
         self.log_path.setEnabled(not busy and save_log)
         self.log_browse.setEnabled(not busy and save_log)
         self.open_log_button.setEnabled(self.last_log is not None and self.last_log.is_file())
-        self.clear_button.setEnabled(not busy)
+        self.clear_button.setEnabled(True)
 
     def _set_status(self, key):
         self.status_key = key
@@ -322,7 +352,7 @@ class MainWindow(QMainWindow):
 
     def add_folder_path(self, value):
         try:
-            paths = unique_folders(self.folder_paths() + [value])
+            paths = unique_folders([value])
         except ValueError as exc:
             QMessageBox.warning(self, self.t('invalid'), str(exc))
             return
@@ -346,13 +376,15 @@ class MainWindow(QMainWindow):
             self.log_path.setText(name)
 
     def _confirm_apply(self):
-        if self.preview_signature != self.signature():
+        if not self.skip_preview.isChecked() and self.preview_signature != self.signature():
             return
-        if QMessageBox.question(self, self.t('confirm_title'), self.t('confirm')) == QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, self.t('confirm_title'), self.t('confirm'),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             self.start_run(True)
 
     def start_run(self, apply=False):
-        if self._busy() or (apply and self.preview_signature != self.signature()):
+        if self._busy() or (apply and not self.skip_preview.isChecked() and self.preview_signature != self.signature()):
             return
         temp = tempfile.TemporaryDirectory(prefix='font-renamer-gui-')
         cancel_file = Path(temp.name) / 'cancel.flag'
@@ -381,6 +413,9 @@ class MainWindow(QMainWindow):
         self.runner.start()
 
     def _append_output(self, text):
+        for line in text.splitlines():
+            if line.startswith('LOG: '):
+                self.last_log = Path(line[5:])
         scrollbar = self.output.verticalScrollBar()
         at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
         self.output.appendPlainText(text)
@@ -434,6 +469,7 @@ class MainWindow(QMainWindow):
 
     def _clear_output(self):
         self.output.clear()
+        self.output.setPlaceholderText('')
 
     def closeEvent(self, event):
         if self._busy():
@@ -445,6 +481,7 @@ class MainWindow(QMainWindow):
         if self.persist:
             self.settings.setValue('language', self.language)
             self.settings.setValue('folders', self.folder_paths())
+            self.settings.setValue('recursive', self.recursive.isChecked())
             for key, checkbox in self.checkboxes.items():
                 self.settings.setValue(key, checkbox.isChecked())
             self.settings.setValue('log_path', self.log_path.text())

@@ -28,14 +28,16 @@ def build(name, script, extra):
 def main():
     if sys.platform != 'win32':
         raise SystemExit('The Windows package must be built on Windows.')
-    build('FontRenamer', 'launch_gui.py', ['--windowed', '--copy-metadata', 'font-rename-fm'])
+    build('FontRenamer', 'launch_gui.py', ['--windowed', '--copy-metadata', 'font-rename-fm',
+          '--icon', str(ROOT/'assets'/'font-renamer.ico'), '--add-data', str(ROOT/'assets')+';assets'])
     build('FontRenamerWorker', 'launch_worker.py', ['--console', '--collect-data', 'anyascii',
           '--collect-submodules', 'fontTools.ttLib.tables', '--hidden-import', 'fontTools.cffLib'])
     app = DIST/'FontRenamer'
     worker = app/'worker'
     shutil.copytree(DIST/'FontRenamerWorker', worker, dirs_exist_ok=True)
     shutil.copy2(ROOT/'LICENSE', app/'LICENSE')
-    shutil.copy2(ROOT/'README.md', app/'README.md')
+    for document in ('README.md', 'CHANGELOG.md', 'VERSIONING.md'):
+        shutil.copy2(ROOT/document, app/document)
     shutil.copy2(ROOT/'THIRD_PARTY_NOTICES.md', app/'THIRD_PARTY_NOTICES.md')
     notices = app/'licenses'
     notices.mkdir(exist_ok=True)
@@ -56,7 +58,8 @@ def main():
     if python_license.is_file():
         shutil.copy2(python_license, notices/'CPython-LICENSE.txt')
     (notices/'inventory.json').write_text(json.dumps(inventory, indent=2), encoding='utf-8')
-    archive = shutil.make_archive(str(DIST/'FontRenamerGUI-0.1.0-windows-x64'), 'zip', DIST, 'FontRenamer')
+    from font_rename_gui import __version__
+    archive = shutil.make_archive(str(DIST/f'FontRenamerGUI-{__version__}-windows-x64'), 'zip', DIST, 'FontRenamer')
     print(archive)
 
 

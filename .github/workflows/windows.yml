@@ -19,4 +19,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: FontRenamerGUI-windows-x64
-          path: dist/FontRenamerGUI-0.1.0-windows-x64.zip
+          path: dist/FontRenamerGUI-*-windows-x64.zip

@@ -125,6 +125,72 @@ class GuiTests(unittest.TestCase):
         self.window.language_picker.setCurrentIndex(0)
         self.assertEqual(self.window.preview_button.text(), 'Vista previa')
 
+    def test_clear_screen_removes_placeholder_and_preserves_log(self):
+        log = self.folder/'test.log'
+        log.write_text('keep this log',encoding='utf-8')
+        self.window.last_log = log
+        self.window._append_output('visible activity')
+        self.window.clear_button.click()
+        self.assertEqual(self.window.output.toPlainText(), '')
+        self.assertEqual(self.window.output.placeholderText(), '')
+        self.assertEqual(log.read_text(encoding='utf-8'), 'keep this log')
+        self.window.runner=object()
+        self.window._refresh_controls()
+        self.assertTrue(self.window.clear_button.isEnabled())
+        self.window.runner=None
+
+    def test_one_folder_replaces_previous_selection(self):
+        child = self.folder/'child'
+        child.mkdir()
+        self.window.add_folder_path(str(self.folder))
+        self.window.add_folder_path(str(child))
+        self.assertEqual(self.window.folder_paths(), [str(child)])
+        self.assertTrue(self.window.recursive.isChecked())
+
+    def test_per_folder_logs_and_recursion_keep_global_deduplication(self):
+        child=self.folder/'child'
+        child.mkdir()
+        make_font(self.folder/'root.ttf')
+        shutil.copy2(self.folder/'root.ttf',child/'child.ttf')
+        self.window.add_folder_path(str(self.folder))
+        self.window.recursive.setChecked(False)
+        self.run_window()
+        self.assertTrue(list((self.folder/'BAK').glob('*.log')))
+        self.assertFalse((child/'BAK').exists())
+        self.window.recursive.setChecked(True)
+        self.run_window()
+        self.assertTrue(list((child/'BAK').glob('*.log')))
+        root_log=next((self.folder/'BAK').glob('*.log')).read_text(encoding='utf-8')
+        child_log=next((child/'BAK').glob('*.log')).read_text(encoding='utf-8')
+        self.assertIn('root.ttf',root_log)
+        self.assertIn('child.ttf',child_log)
+        self.assertEqual(len(list(self.folder.rglob('*.ttf'))),2)
+        self.run_window(True)
+        self.assertEqual(self.window.result,0)
+        self.assertEqual(len(list(self.folder.rglob('*.ttf'))),1)
+
+    def test_help_and_window_icon(self):
+        self.assertIn('chino',self.window.checkboxes['transliterate'].toolTip())
+        self.assertFalse(self.window.windowIcon().isNull())
+
+    def test_apply_without_preview_is_opt_in_and_confirms(self):
+        make_font(self.folder/'source.ttf')
+        self.window.add_folder_path(str(self.folder))
+        self.assertFalse(self.window.skip_preview.isChecked())
+        self.assertFalse(self.window.apply_button.isEnabled())
+        self.window.skip_preview.setChecked(True)
+        self.assertTrue(self.window.apply_button.isEnabled())
+        from PySide6.QtWidgets import QMessageBox
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.No) as confirm:
+            self.window.apply_button.click()
+            confirm.assert_called_once()
+            self.assertEqual(confirm.call_args.args[-1], QMessageBox.StandardButton.No)
+            self.assertIn('puede renombrar',confirm.call_args.args[2])
+        self.assertTrue((self.folder/'source.ttf').exists())
+        self.run_window(True)
+        self.assertEqual(self.window.result,0)
+        self.assertTrue((self.folder/'Test Regular.ttf').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -12,13 +12,14 @@ class Options:
     transliterate: bool = True
     save_log: bool = True
     log_path: str = ''
+    recursive: bool = True
 
     def resolved_log(self, folders):
         if not self.save_log:
             return None
         if self.log_path.strip():
             return Path(self.log_path.strip()).absolute()
-        return Path(folders[0]) / f'font_renamer[{datetime.now().date().isoformat()}].log'
+        return None  # Automatic logs are written in each processed folder's BAK.
 
 
 def unique_folders(folders):
@@ -41,6 +42,8 @@ def build_arguments(folders, options, apply=False, cancel_file=None):
         raise ValueError('Select at least one folder')
     args = [str(p) for p in folders]
     args.append('--apply' if apply else '--dry-run')
+    if not options.recursive:
+        args.append('--no-recursive')
     if options.normalize_internal:
         args.append('--normalize-internal')
     if not options.remove_duplicates:
@@ -48,6 +51,8 @@ def build_arguments(folders, options, apply=False, cancel_file=None):
     if not options.transliterate:
         args.append('--no-transliterate')
     log = options.resolved_log(folders)
+    if options.save_log and log is None:
+        args.append('--log-per-folder')
     if log is not None:
         if not log.parent.is_dir() or log.is_dir():
             raise ValueError(f'Log folder does not exist: {log.parent}')
@@ -69,4 +74,4 @@ def worker_command():
     interpreter = Path(sys.executable)
     if interpreter.name.casefold() == 'pythonw.exe':
         interpreter = interpreter.with_name('python.exe')
-    return [str(interpreter), '-u', '-m', 'font_rename_fm.rename']
+    return [str(interpreter), '-u', '-m', 'font_rename_gui.worker']
