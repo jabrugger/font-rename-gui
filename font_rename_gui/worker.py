@@ -1,5 +1,6 @@
 """GUI integration with the pinned engine; deduplication spans the whole run."""
 import contextlib
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -8,10 +9,43 @@ from font_rename_fm import rename as engine
 
 def main(argv=None):
     arguments = list(sys.argv[1:] if argv is None else argv)
+    gui_events = '--gui-events' in arguments
     recursive = '--no-recursive' not in arguments
     per_folder = '--log-per-folder' in arguments
-    arguments = [a for a in arguments if a not in ('--no-recursive', '--log-per-folder')]
+    arguments = [a for a in arguments if a not in ('--no-recursive', '--log-per-folder', '--gui-events')]
     original_collect, original_run = engine.collect_files, engine.run_command
+    original_process = engine.Renamer.process
+    original_normalize = engine.normalize_retained_names
+
+    def event(path, phase, status):
+        print('GUI_EVENT: ' + json.dumps({'path':str(path), 'phase':phase, 'status':status}, ensure_ascii=False), flush=True)
+
+    def process(renamer, paths):
+        for source in paths:
+            if renamer.should_cancel(): break
+            if renamer.apply: event(source, 'file', 'processing')
+            errors,changed,duplicates = renamer.errors,renamer.changed,renamer.duplicates
+            original_process(renamer,[source])
+            if renamer.apply:
+                status = 'error' if renamer.errors > errors else ('done' if renamer.changed > changed or renamer.duplicates > duplicates else ('not_processed' if renamer.cancelled else 'unchanged'))
+                event(source,'file',status)
+
+    def normalize(renamer):
+        reserved=renamer.reserved
+        count=0
+        try:
+            for key,ref in list(reserved.items()):
+                if renamer.should_cancel(): break
+                renamer.reserved={key:ref}
+                if renamer.apply: event(ref.path,'internal','processing')
+                errors=renamer.errors
+                normalized=original_normalize(renamer)
+                count+=normalized
+                if renamer.apply:
+                    event(ref.path,'internal','error' if renamer.errors>errors else ('done' if normalized else 'unchanged'))
+        finally:
+            renamer.reserved=reserved
+        return count
 
     def collect(paths):
         if recursive:
@@ -77,6 +111,9 @@ def main(argv=None):
                 print(f'EXIT STATUS: {result}')
         return result
 
+    if gui_events:
+        engine.Renamer.process = process
+        engine.normalize_retained_names = normalize
     engine.collect_files = collect
     if per_folder:
         engine.run_command = run
@@ -84,6 +121,8 @@ def main(argv=None):
         return engine.main(arguments)
     finally:
         engine.collect_files, engine.run_command = original_collect, original_run
+        engine.Renamer.process = original_process
+        engine.normalize_retained_names = original_normalize
 
 
 if __name__ == '__main__':

@@ -4,15 +4,16 @@ import tempfile
 from pathlib import Path
 from importlib.metadata import version
 
-from PySide6.QtCore import QLocale, QSettings, Qt, QUrl
+from PySide6.QtCore import QLocale, QSettings, Qt, QUrl, QTranslator, QLibraryInfo
 from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,
     QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
-    QPlainTextEdit, QProgressBar, QPushButton, QSplitter, QVBoxLayout, QWidget)
+    QPlainTextEdit, QProgressBar, QStackedWidget, QStyle, QPushButton, QSplitter, QVBoxLayout, QWidget)
 
 from . import __version__
-from .model import Options, build_arguments, unique_folders, worker_command
+from .model import Options, build_arguments, unique_folders, worker_command, default_log_directory
 from .runner import EngineRunner
+from .preview import PreviewWidget
 
 TEXT = {
  'es': {
@@ -28,10 +29,10 @@ TEXT = {
   'transliterate_help':'Solo se aplica a nombres en otros alfabetos (chino, árabe, coreano, etc.). Agrega una transliteración latina y conserva el nombre original entre corchetes; los nombres latinos no se transliteran.',
   'save_log':'Guardar log completo', 'log_hint':'Automático: BAK de cada carpeta procesada',
   'clear_tip':'Borra únicamente el texto de Actividad. No borra los archivos de log.',
-  'browse_log':'Elegir archivo de log', 'output':'Actividad', 'clear':'Limpiar pantalla',
+  'browse_log':'Elegir carpeta de logs', 'output':'Actividad', 'clear':'Limpiar pantalla',
   'output_hint':'La pantalla conserva las últimas 3.000 líneas. El log guarda la salida completa.',
   'empty':'Agregá una carpeta y revisá la vista previa antes de aplicar cambios.',
-  'preview':'Vista previa', 'apply':'Aplicar cambios', 'cancel':'Cancelar', 'open_log':'Abrir log',
+  'preview':'Vista previa', 'apply':'Aplicar cambios', 'cancel':'Detener proceso', 'open_log':'Abrir log',
   'ready':'Listo para revisar', 'previewing':'Generando vista previa…', 'applying':'Aplicando cambios…',
   'cancelling':'Cancelando al terminar la fuente en curso…', 'cancelled':'Cancelado. Los cambios terminados se conservan.',
   'preview_done':'Vista previa terminada. Podés aplicar los cambios.', 'preview_issues':'Vista previa terminada con errores. Revisá el log.',
@@ -41,7 +42,7 @@ TEXT = {
   'invalid':'Revisá la selección', 'close_title':'Ejecución en curso',
   'close':'Para cerrar, se cancelará entre fuentes. Los cambios ya terminados se conservarán. ¿Solicitar la cancelación?',
   'summary':'{changes} cambios · {duplicates} duplicados · {errors} errores',
-  'select_folder':'Elegir carpeta de fuentes', 'choose_log':'Guardar log', 'idle':'PREVIEW FIRST',
+  'select_folder':'Elegir carpeta de fuentes', 'choose_log':'Carpeta de logs', 'idle':'VISTA PREVIA PRIMERO',
  },
  'en': {
   'subtitle':'Bring order to your font collection.', 'folders':'Folder',
@@ -54,12 +55,12 @@ TEXT = {
   'dedup':'Remove identical duplicates', 'dedup_tip':'Only removes copies with exactly the same bytes.',
   'transliterate':'Transliterate names', 'transliterate_tip':'Adds a Latin name and keeps the original in brackets.',
   'transliterate_help':'Only applies to names in other writing systems (Chinese, Arabic, Korean, etc.). Adds a Latin transliteration and keeps the original name in brackets; Latin names are not transliterated.',
-  'save_log':'Save complete log', 'log_hint':'Automatic: BAK in each processed folder',
+  'save_log':'Save complete log', 'log_hint':'Automatic: logs beside the EXE',
   'clear_tip':'Clears only the Activity display. Does not delete log files.',
-  'browse_log':'Choose log file', 'output':'Activity', 'clear':'Clear screen',
+  'browse_log':'Choose log folder', 'output':'Activity', 'clear':'Clear screen',
   'output_hint':'The screen keeps the latest 3,000 lines. The log keeps the complete output.',
   'empty':'Add a folder and review the preview before applying changes.',
-  'preview':'Preview', 'apply':'Apply changes', 'cancel':'Cancel', 'open_log':'Open log',
+  'preview':'Preview', 'apply':'Apply changes', 'cancel':'Stop process', 'open_log':'Open log',
   'ready':'Ready to preview', 'previewing':'Generating preview…', 'applying':'Applying changes…',
   'cancelling':'Cancelling after the current font…', 'cancelled':'Cancelled. Completed changes are retained.',
   'preview_done':'Preview finished. You can apply changes.', 'preview_issues':'Preview finished with errors. Review the log.',
@@ -69,7 +70,7 @@ TEXT = {
   'invalid':'Check your selection', 'close_title':'Run in progress',
   'close':'Closing requests cancellation between fonts. Completed changes will be retained. Request cancellation?',
   'summary':'{changes} changes · {duplicates} duplicates · {errors} errors',
-  'select_folder':'Choose a font folder', 'choose_log':'Save log', 'idle':'PREVIEW FIRST',
+  'select_folder':'Choose a font folder', 'choose_log':'Log folder', 'idle':'PREVIEW FIRST',
  }
 }
 
@@ -81,7 +82,6 @@ QFrame#panel QWidget { background:transparent; }
 QLabel#title { font-size:30px; font-weight:650; }
 QLabel#section { font-size:16px; font-weight:600; }
 QLabel#muted { color:#a2acba; font-size:12px; }
-QLabel#badge { background:#303742; color:#e2b97b; padding:7px 12px; border-radius:6px; font-size:11px; }
 QListWidget, QPlainTextEdit, QLineEdit { background:#171c23; border:1px solid #394350; border-radius:6px; padding:9px; }
 QListWidget::item { padding:10px; border-bottom:1px solid #2b333f; }
 QListWidget::item:selected { background:#394758; }
@@ -93,14 +93,26 @@ QPushButton#primary:hover { background:#f0cc94; }
 QPushButton#primary:disabled { background:#574d3d; color:#a39784; border-color:#574d3d; }
 QCheckBox { padding:3px 0; spacing:9px; min-height:24px; }
 QCheckBox::indicator { width:16px; height:16px; }
-QCheckBox::indicator:unchecked { border:1px solid #647083; border-radius:3px; background:#171c23; }
+QCheckBox::indicator:unchecked { border:1px solid #a2acba; border-radius:3px; background:#202730; }
+QCheckBox::indicator:checked { image:url("__CHECK_IMAGE__"); }
+QCheckBox:hover { color:#f0cc94; }
+QCheckBox::indicator:unchecked:hover { border:2px solid #e2b97b; }
+QCheckBox:disabled { color:#78828f; }
+QCheckBox::indicator:disabled { border:1px solid #465263; border-radius:3px; background:#252d38; }
 QComboBox { background:#252e3a; padding:6px 12px; border:1px solid #465263; border-radius:5px; }
 QComboBox QAbstractItemView { background:#252e3a; selection-background-color:#465263; }
 QProgressBar { background:#252e3a; border:0; border-radius:3px; max-height:5px; }
 QProgressBar::chunk { background:#e2b97b; }
 QScrollBar:vertical { width:12px; background:#171c23; }
 QScrollBar::handle:vertical { background:#465263; border-radius:5px; min-height:20px; }
-QSplitter::handle { background:#171c23; }
+QSplitter::handle { background:#394350; border-top:1px solid #647083; border-bottom:1px solid #647083; }
+QSplitter::handle:hover { background:#e2b97b; }
+QLabel#detailCaption { color:#e2b97b; font-weight:600; padding:5px 0; }
+QTableView { background:#171c23; alternate-background-color:#202730; color:#e6e9ed; gridline-color:#323b48; selection-background-color:#394758; selection-color:#ffffff; border:1px solid #394350; }
+QHeaderView::section { background:#252e3a; color:#e6e9ed; padding:8px; border:0; border-bottom:1px solid #465263; }
+QTabWidget::pane { border:1px solid #323b48; }
+QTabBar::tab { background:#202730; padding:10px 18px; border:1px solid #323b48; }
+QTabBar::tab:selected { background:#303a47; color:#e2b97b; }
 '''
 
 
@@ -113,6 +125,10 @@ class MainWindow(QMainWindow):
         self.language = self.settings.value('language', system_language) if persist else 'es'
         if self.language not in TEXT:
             self.language = system_language
+        app = QApplication.instance()
+        if not hasattr(app, '_font_renamer_translator'):
+            app._font_renamer_translator = QTranslator(app)
+        self.qt_translator = app._font_renamer_translator
         self.runner = None
         self.cancel_temp = None
         self.cancel_file = None
@@ -123,9 +139,10 @@ class MainWindow(QMainWindow):
         self.result = None
         self.setWindowTitle('Font Renamer')
         self.setWindowIcon(QIcon(str(Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))/'assets'/'font-renamer.ico')))
-        self.resize(1120, 850)
+        self.resize(1120, 940)
         self.setMinimumSize(940, 700)
-        self.setStyleSheet(STYLE)
+        assets = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))/'assets'
+        self.setStyleSheet(STYLE.replace('__CHECK_IMAGE__',(assets/'checkbox-checked.svg').as_posix()))
         self._build()
         self._translate()
         if persist:
@@ -136,7 +153,8 @@ class MainWindow(QMainWindow):
             self.recursive.setChecked(self.settings.value('recursive', True, type=bool))
             for key, checkbox in self.checkboxes.items():
                 checkbox.setChecked(self.settings.value(key, True, type=bool))
-            self.log_path.setText(self.settings.value('log_path', ''))
+            self.log_path.setText(self.settings.value('log_directory', ''))
+        self.folder_line.setText(self.folder_paths()[0] if self.folder_paths() else '')
         self._refresh_controls()
 
     def t(self, key):
@@ -183,9 +201,6 @@ class MainWindow(QMainWindow):
         heading.addWidget(self._label('subtitle'))
         header.addLayout(heading)
         header.addStretch()
-        self.badge = self._label('idle', False)
-        self.badge.setObjectName('badge')
-        header.addWidget(self.badge)
         self.language_picker = QComboBox()
         self.language_picker.addItem('Español', 'es')
         self.language_picker.addItem('English', 'en')
@@ -193,74 +208,71 @@ class MainWindow(QMainWindow):
         self.language_picker.currentIndexChanged.connect(self._change_language)
         header.addWidget(self.language_picker)
         layout.addLayout(header)
-        split = QSplitter(Qt.Orientation.Horizontal)
-        folders_panel, fl = self._panel('folders')
-        fl.addWidget(self._label('folders_hint'))
+        self.folders = QListWidget()
+        self.folders.hide()  # Retained as the validated selection store, never displayed.
+        folder_row = QHBoxLayout()
+        folder_row.addWidget(self._label('folders',False))
+        self.folder_line = QLineEdit()
+        self.folder_line.setReadOnly(True)
+        folder_row.addWidget(self.folder_line,1)
+        self.add_button = self._button('add',self._add_folder)
+        folder_row.addWidget(self.add_button)
+        self.remove_button = self._button('remove',self._remove_folders)
+        self.remove_button.hide()
         self.recursive = QCheckBox()
         self.recursive.setChecked(True)
         self.recursive.toggled.connect(self._invalidate_preview)
-        self.labels.append((self.recursive, 'recursive'))
-        fl.addWidget(self.recursive)
-        self.skip_preview = QCheckBox()
-        self.skip_preview.setChecked(False)
-        self.skip_preview.toggled.connect(self._invalidate_preview)
-        self.labels.append((self.skip_preview, 'skip_preview'))
-        fl.addWidget(self.skip_preview)
-        self.folders = QListWidget()
-        self.folders.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self.folders.itemSelectionChanged.connect(self._refresh_controls)
-        fl.addWidget(self.folders, 1)
-        row = QHBoxLayout()
-        self.add_button = self._button('add', self._add_folder)
-        self.remove_button = self._button('remove', self._remove_folders)
-        row.addWidget(self.add_button)
-        row.addWidget(self.remove_button)
-        row.addStretch()
-        fl.addLayout(row)
-        options_panel, ol = self._panel('options')
+        self.labels.append((self.recursive,'recursive'))
+        folder_row.addWidget(self.recursive)
+        layout.addLayout(folder_row)
+        option_row = QHBoxLayout()
         self.checkboxes = {}
-        for key, tip in [('normalize', 'normalize_tip'), ('dedup', 'dedup_tip'), ('transliterate', 'transliterate_tip'), ('save_log', None)]:
-            checkbox = QCheckBox()
+        for key in ['normalize','dedup','transliterate','save_log']:
+            checkbox=QCheckBox()
+            checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
             checkbox.setChecked(True)
             checkbox.toggled.connect(self._invalidate_preview)
-            self.labels.append((checkbox, key))
-            self.checkboxes[key] = checkbox
-            ol.addWidget(checkbox)
-            if tip:
-                ol.addWidget(self._label(tip))
-        log_row = QHBoxLayout()
-        self.log_path = QLineEdit()
-        self.log_path.setMinimumHeight(38)
+            self.labels.append((checkbox,key))
+            self.checkboxes[key]=checkbox
+            option_row.addWidget(checkbox)
+        self.skip_preview=QCheckBox()
+        self.skip_preview.setChecked(False)
+        self.skip_preview.toggled.connect(self._invalidate_preview)
+        self.labels.append((self.skip_preview,'skip_preview'))
+        option_row.addWidget(self.skip_preview)
+        option_row.addStretch()
+        self.log_settings=QPushButton('Logs\u2026')
+        option_row.addWidget(self.log_settings)
+        layout.addLayout(option_row)
+        self.log_panel=QWidget()
+        log_row=QHBoxLayout(self.log_panel)
+        log_row.setContentsMargins(0,0,0,0)
+        self.log_path=QLineEdit()
         self.log_path.textChanged.connect(self._invalidate_preview)
-        self.log_browse = QPushButton('…')
-        self.log_browse.setMinimumHeight(38)
-        self.log_browse.setMaximumWidth(40)
+        self.log_browse=QPushButton('\u2026')
         self.log_browse.clicked.connect(self._browse_log)
-        log_row.addWidget(self.log_path)
+        log_row.addWidget(self.log_path,1)
         log_row.addWidget(self.log_browse)
-        ol.addLayout(log_row)
-        ol.addStretch()
-        split.addWidget(folders_panel)
-        split.addWidget(options_panel)
-        split.setSizes([630, 420])
-        layout.addWidget(split, 3)
-        activity_panel, al = self._panel('output')
-        toolbar = QHBoxLayout()
+        layout.addWidget(self.log_panel)
+        self.log_panel.hide()
+        self.log_settings.clicked.connect(lambda:self.log_panel.setVisible(not self.log_panel.isVisible()))
+        self.view_stack=QStackedWidget()
+        activity_panel,al=self._panel('output')
+        toolbar=QHBoxLayout()
         toolbar.addWidget(self._label('output_hint'))
         toolbar.addStretch()
-        self.clear_button = self._button('clear', self._clear_output)
+        self.clear_button=self._button('clear',self._clear_output)
         toolbar.addWidget(self.clear_button)
         al.addLayout(toolbar)
-        self.output = QPlainTextEdit()
+        self.output=QPlainTextEdit()
         self.output.setReadOnly(True)
         self.output.setMaximumBlockCount(3000)
-        self.output.setFont(QFont('Consolas', 10))
-        self.output.setPlaceholderText(self.t('empty'))
-        self.checkboxes['transliterate'].setToolTip(self.t('transliterate_help'))
-        self.clear_button.setToolTip(self.t('clear_tip'))
-        self.skip_preview.setToolTip(self.t('skip_preview_tip'))
-        al.addWidget(self.output, 1)
-        layout.addWidget(activity_panel, 4)
+        self.output.setFont(QFont('Consolas',10))
+        al.addWidget(self.output,1)
+        self.view_stack.addWidget(activity_panel)
+        self.preview_view=PreviewWidget()
+        self.view_stack.addWidget(self.preview_view)
+        layout.addWidget(self.view_stack,1)
         self.progress = QProgressBar()
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
@@ -276,26 +288,51 @@ class MainWindow(QMainWindow):
         actions.addWidget(self.open_log_button)
         actions.addStretch()
         self.cancel_button = self._button('cancel', self._cancel)
-        self.preview_button = self._button('preview', lambda: self.start_run(False))
+        self.preview_button = self._button('preview', self._preview_action)
         self.apply_button = self._button('apply', self._confirm_apply)
         self.apply_button.setObjectName('primary')
-        for button in (self.cancel_button, self.preview_button, self.apply_button):
+        self.cancel_button.hide()
+        for button in (self.preview_button, self.apply_button):
             actions.addWidget(button)
         layout.addLayout(actions)
         try:
             engine_version = version('font-rename-fm')
         except Exception:
             engine_version = '?'
-        footer = QLabel(f'GUI {__version__}  ·  font-rename-fm {engine_version}  ·  MIT')
-        footer.setObjectName('muted')
-        layout.addWidget(footer)
+        self.footer = QLabel(
+            f'<a href="https://github.com/jabrugger/font-rename-gui" style="color:#a2acba">'
+            f'GUI {__version__}</a> &nbsp; &middot; &nbsp; '
+            f'<a href="https://github.com/jabrugger/font-rename-neo" style="color:#a2acba">'
+            f'font-rename-fm {engine_version}</a> &nbsp; &middot; &nbsp; MIT')
+        self.footer.setObjectName('muted')
+        self.footer.setTextFormat(Qt.TextFormat.RichText)
+        self.footer.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse |
+                                           Qt.TextInteractionFlag.LinksAccessibleByKeyboard)
+        self.footer.setOpenExternalLinks(True)
+        layout.addWidget(self.footer)
 
     def _translate(self):
+        app = QApplication.instance()
+        app.removeTranslator(self.qt_translator)
+        if self.language == 'es':
+            translations = Path(sys._MEIPASS)/'translations' if getattr(sys, 'frozen', False) else Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath))
+            if self.qt_translator.load(str(translations/'qtbase_es.qm')):
+                app.installTranslator(self.qt_translator)
+        self.language_picker.setItemText(0, 'Espa\u00f1ol' if self.language == 'es' else 'Spanish')
+        self.language_picker.setItemText(1, 'Ingl\u00e9s' if self.language == 'es' else 'English')
+        self.checkboxes['normalize'].setToolTip(self.t('normalize_tip'))
+        self.checkboxes['dedup'].setToolTip(self.t('dedup_tip'))
+        self.checkboxes['transliterate'].setToolTip(self.t('transliterate_help'))
+        self.clear_button.setToolTip(self.t('clear_tip'))
+        self.skip_preview.setToolTip(self.t('skip_preview_tip'))
+        self.cancel_button.setToolTip('Detiene entre archivos. Conserva los cambios ya realizados; no deshace operaciones.' if self.language=='es' else 'Stops between files. Completed changes remain; operations are not undone.')
         for widget, key in self.labels:
             widget.setText(self.t(key))
         for button, key in self.buttons:
             button.setText(self.t(key))
-        self.log_path.setPlaceholderText(self.t('log_hint'))
+        self.preview_view.set_language(self.language)
+        self.log_path.setPlaceholderText(str(default_log_directory()))
+        self.log_path.setToolTip(self.t('log_hint'))
         self.log_browse.setToolTip(self.t('browse_log'))
         self.output.setPlaceholderText(self.t('empty'))
         self.status.setText(self.t(self.status_key))
@@ -303,6 +340,7 @@ class MainWindow(QMainWindow):
     def _change_language(self):
         self.language = self.language_picker.currentData()
         self._translate()
+        self._refresh_controls()
 
     def folder_paths(self):
         return [self.folders.item(i).text() for i in range(self.folders.count())]
@@ -320,6 +358,10 @@ class MainWindow(QMainWindow):
 
     def _invalidate_preview(self):
         self.preview_signature = None
+        if hasattr(self,'folder_line'):
+            self.folder_line.setText(self.folder_paths()[0] if self.folder_paths() else '')
+        if hasattr(self,'preview_view'):
+            self.preview_view.stale()
         if not self._busy():
             self._set_status('ready')
         self._refresh_controls()
@@ -329,9 +371,16 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'apply_button'):
             return
         busy = self._busy()
-        self.preview_button.setEnabled(not busy and self.folders.count() > 0)
-        self.apply_button.setEnabled(not busy and self.folders.count() > 0 and
-            (self.skip_preview.isChecked() or self.preview_signature == self.signature()))
+        stopping = bool(self.cancel_file and self.cancel_file.exists())
+        self.preview_button.setEnabled((not busy and self.folders.count()>0) or (busy and not self.running_apply and not stopping))
+        self.apply_button.setEnabled((not busy and self.folders.count()>0 and
+            (self.skip_preview.isChecked() or self.preview_signature == self.signature())) or
+            (busy and self.running_apply and not stopping))
+        stop_tip='Detiene entre archivos. Conserva los cambios ya realizados; no deshace operaciones.' if self.language=='es' else 'Stops between files. Completed changes remain; operations are not undone.'
+        for button,key,active in [(self.preview_button,'preview',busy and not self.running_apply),(self.apply_button,'apply',busy and self.running_apply)]:
+            button.setText(('Detener' if self.language=='es' else 'Stop') if active else self.t(key))
+            button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop if active else QStyle.StandardPixmap.SP_MediaPlay))
+            button.setToolTip(stop_tip if active else self.t(key))
         self.cancel_button.setEnabled(busy and not (self.cancel_file and self.cancel_file.exists()))
         self.add_button.setEnabled(not busy)
         self.remove_button.setEnabled(not busy and bool(self.folders.selectedItems()))
@@ -371,11 +420,20 @@ class MainWindow(QMainWindow):
         self._invalidate_preview()
 
     def _browse_log(self):
-        name, _ = QFileDialog.getSaveFileName(self, self.t('choose_log'), self.log_path.text() or 'font_renamer.log', 'Log (*.log);;Text (*.txt)')
+        name = QFileDialog.getExistingDirectory(self, self.t('choose_log'), self.log_path.text() or str(default_log_directory()))
         if name:
             self.log_path.setText(name)
 
+    def _preview_action(self):
+        if self._busy():
+            if not self.running_apply: self._cancel()
+        else:
+            self.start_run(False)
+
     def _confirm_apply(self):
+        if self._busy():
+            if self.running_apply: self._cancel()
+            return
         if not self.skip_preview.isChecked() and self.preview_signature != self.signature():
             return
         if QMessageBox.question(self, self.t('confirm_title'), self.t('confirm'),
@@ -386,11 +444,12 @@ class MainWindow(QMainWindow):
     def start_run(self, apply=False):
         if self._busy() or (apply and not self.skip_preview.isChecked() and self.preview_signature != self.signature()):
             return
+        had_preview = self.preview_signature == self.signature()
         temp = tempfile.TemporaryDirectory(prefix='font-renamer-gui-')
         cancel_file = Path(temp.name) / 'cancel.flag'
         try:
             args, log = build_arguments(self.folder_paths(), self.options(), apply, cancel_file)
-            command = worker_command() + args
+            command = worker_command() + args + ['--gui-events']
         except Exception as exc:
             temp.cleanup()
             QMessageBox.warning(self, self.t('invalid'), str(exc))
@@ -403,6 +462,12 @@ class MainWindow(QMainWindow):
         self.result = None
         self.preview_signature = None
         self.output.clear()
+        if not apply or not had_preview:
+            self.preview_view.reset()
+            self.preview_view.set_language(self.language)
+        if apply:
+            self.preview_view.begin_apply()
+        self.view_stack.setCurrentIndex(1 if apply else 0)
         self.progress.setRange(0, 0)
         self._set_status('applying' if apply else 'previewing')
         self.runner = EngineRunner(command, self.folder_paths()[0], self)
@@ -413,12 +478,15 @@ class MainWindow(QMainWindow):
         self.runner.start()
 
     def _append_output(self, text):
+        self.preview_view.consume(text)
         for line in text.splitlines():
             if line.startswith('LOG: '):
                 self.last_log = Path(line[5:])
         scrollbar = self.output.verticalScrollBar()
         at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
-        self.output.appendPlainText(text)
+        visible='\n'.join(line for line in text.splitlines() if not line.startswith('GUI_EVENT: '))
+        if visible:
+            self.output.appendPlainText(visible)
         if at_bottom:
             scrollbar.setValue(scrollbar.maximum())
         for match in re.finditer(r'(\d+) changes, (\d+) byte-identical duplicates, (\d+) errors\.', text):
@@ -428,6 +496,12 @@ class MainWindow(QMainWindow):
         self.result = code
 
     def _finished(self):
+        if self.running_apply:
+            self.preview_view.finish_apply()
+        else:
+            self.preview_view.finish()
+            if self.preview_view.proxy.rowCount():
+                self.preview_view.table.selectRow(0)
         runner = self.runner
         self.runner = None
         runner.deleteLater()
@@ -443,6 +517,7 @@ class MainWindow(QMainWindow):
         else:
             key = 'preview_done' if code == 0 else 'preview_issues'
             self.preview_signature = self.run_signature
+        self.view_stack.setCurrentIndex(1)
         self._set_status(key)
         if hasattr(self, 'summary'):
             self.status.setText(self.status.text() + '  ' + self.t('summary').format(**self.summary))
@@ -484,7 +559,7 @@ class MainWindow(QMainWindow):
             self.settings.setValue('recursive', self.recursive.isChecked())
             for key, checkbox in self.checkboxes.items():
                 self.settings.setValue(key, checkbox.isChecked())
-            self.settings.setValue('log_path', self.log_path.text())
+            self.settings.setValue('log_directory', self.log_path.text())
             self.settings.sync()
         event.accept()
 
@@ -505,8 +580,11 @@ def main():
         def start():
             window.start_run(False)
             def finish():
-                report.write_text(json.dumps({'preview_ready': window.preview_signature is not None,
-                    'output': window.output.toPlainText()}, ensure_ascii=False), encoding='utf-8')
+                dialog = QMessageBox(window)
+                dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                yes_label = dialog.button(QMessageBox.StandardButton.Yes).text().replace('&', '')
+                report.write_text(json.dumps({'yes_label': yes_label, 'preview_ready': window.preview_signature is not None,
+                    'output': window.output.toPlainText(), 'log': str(window.last_log), 'preview_rows': len(window.preview_view.rows), 'preview_visible':window.view_stack.currentIndex()==1}, ensure_ascii=False), encoding='utf-8')
                 app.quit()
             window.runner.finished.connect(finish)
         QTimer.singleShot(0, start)

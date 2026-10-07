@@ -28,7 +28,12 @@ def build(name, script, extra):
 def main():
     if sys.platform != 'win32':
         raise SystemExit('The Windows package must be built on Windows.')
+    from PySide6.QtCore import QLibraryInfo
+    translation = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath))/'qtbase_es.qm'
+    if not translation.is_file():
+        raise RuntimeError('Missing Spanish Qt translations')
     build('FontRenamer', 'launch_gui.py', ['--windowed', '--copy-metadata', 'font-rename-fm',
+          '--add-data', str(translation)+';translations',
           '--icon', str(ROOT/'assets'/'font-renamer.ico'), '--add-data', str(ROOT/'assets')+';assets'])
     build('FontRenamerWorker', 'launch_worker.py', ['--console', '--collect-data', 'anyascii',
           '--collect-submodules', 'fontTools.ttLib.tables', '--hidden-import', 'fontTools.cffLib'])

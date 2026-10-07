@@ -11,15 +11,21 @@ class Options:
     remove_duplicates: bool = True
     transliterate: bool = True
     save_log: bool = True
-    log_path: str = ''
+    log_directory: str = ''
     recursive: bool = True
 
     def resolved_log(self, folders):
         if not self.save_log:
             return None
-        if self.log_path.strip():
-            return Path(self.log_path.strip()).absolute()
-        return None  # Automatic logs are written in each processed folder's BAK.
+        directory = Path(self.log_directory.strip()).expanduser().absolute() if self.log_directory.strip() else default_log_directory()
+        if directory.exists() and not directory.is_dir():
+            raise ValueError(f'Log location is not a folder: {directory}')
+        return directory / f'font_renamer[{datetime.now().date().isoformat()}].log'
+
+
+def default_log_directory():
+    base = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[1]
+    return base / 'logs'
 
 
 def unique_folders(folders):
@@ -51,11 +57,13 @@ def build_arguments(folders, options, apply=False, cancel_file=None):
     if not options.transliterate:
         args.append('--no-transliterate')
     log = options.resolved_log(folders)
-    if options.save_log and log is None:
-        args.append('--log-per-folder')
     if log is not None:
-        if not log.parent.is_dir() or log.is_dir():
-            raise ValueError(f'Log folder does not exist: {log.parent}')
+        try:
+            log.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(f'Cannot create log folder: {log.parent}: {exc}') from exc
+        if log.is_dir():
+            raise ValueError(f'Log destination is a folder: {log}')
         if log.suffix.casefold() in {'.ttf', '.otf', '.ttc', '.otc'} or log.name.casefold().endswith('.original.bak'):
             raise ValueError('The log must not overwrite a font or backup')
         args.extend(['--log', str(log)])

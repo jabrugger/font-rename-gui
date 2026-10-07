@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.0 - 2026-10-07
+
+- Keep table selection and detail contents synchronized after filtering and refreshes; label the selected file explicitly.
+- Enlarge the details area and show a draggable splitter. Make editable checkboxes visually distinct with boxed checkmarks and hover feedback.
+
+- Bundle engine 0.3.2, fixing selection of valid Korean names over malformed guessed records; verify the packaged worker with a generated regression font.
+
+- Compact single-line folder selection and options; a shared central area automatically switches from analysis activity to the preview list.
+- Keep the list visible while applying; mark completed operations using confirmed worker results, errors in red, and unfinished operations as not processed.
+- Add Play icons to Preview and Apply; the active action becomes Stop with a stop icon and cooperative cancellation tooltip. Remove the separate stop button.
+
+- Bundle Spanish Qt translations so standard dialog buttons and controls follow the selected language; refresh option tooltips when switching languages.
+
+- Link GUI and engine version information in the footer to their respective GitHub repositories.
+
+- Fix corrupted accented UI text and remove the obsolete preview-first badge.
+
+- Store GUI logs in one dated file under logs beside the executable, independent of the working directory.
+- Configure and remember a custom log folder with a folder chooser. Create missing directories before processing; keep existing log files unchanged.
+- Stop creating logs inside font-folder BAK directories.
+
+
 ## 0.2.0
 
 - Select one folder with Include subfolders enabled by default.
