@@ -18,5 +18,5 @@ jobs:
       - run: python tools/smoke_windows.py
       - uses: actions/upload-artifact@v4
         with:
-          name: FontRenamerGUI-windows-x64
-          path: dist/FontRenamerGUI-*-windows-x64.zip
+          name: FontRenameNeoGUI-windows-x64
+          path: dist/FontRenameNeoGUI-*-windows-x64.zip

@@ -10,13 +10,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tests.test_gui import make_font
-from font_rename_fm.rename import FileDates
+from font_rename_neo.rename import FileDates
 from fontTools.ttLib import TTFont
 
 
 def main():
-    package = ROOT/'dist'/'FontRenamer'
-    worker = package/'worker'/'FontRenamerWorker.exe'
+    package = ROOT/'dist'/'FontRenameNeo'
+    worker = package/'worker'/'FontRenameNeoWorker.exe'
+    identity = subprocess.run([str(worker), '--version'], capture_output=True, encoding='utf-8', check=True, timeout=30)
+    assert 'Font Rename Neo 0.4.0 (font_rename_neo)' in identity.stdout, identity.stdout
+    assert not list(package.rglob('font_rename_fm*')), 'Legacy engine accidentally bundled'
+
     with tempfile.TemporaryDirectory() as temporary:
         folder = Path(temporary)/'Fonts with spaces å­—ä½“'
         folder.mkdir()
@@ -37,7 +41,7 @@ def main():
         nested.mkdir()
         shutil.copy2(folder/' source.ttf', nested/'nested.ttf')
         report = Path(temporary)/'gui-report.json'
-        subprocess.run([str(package/'FontRenamer.exe'), '--preview-test', str(folder), str(report)],
+        subprocess.run([str(package/'FontRenameNeo.exe'), '--preview-test', str(folder), str(report)],
             env=dict(os.environ, QT_QPA_PLATFORM='offscreen'), check=True, timeout=75)
         result = json.loads(report.read_text(encoding='utf-8'))
         assert result['preview_ready'], result

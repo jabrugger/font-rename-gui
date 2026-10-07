@@ -32,14 +32,14 @@ def main():
     translation = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath))/'qtbase_es.qm'
     if not translation.is_file():
         raise RuntimeError('Missing Spanish Qt translations')
-    build('FontRenamer', 'launch_gui.py', ['--windowed', '--copy-metadata', 'font-rename-fm',
+    build('FontRenameNeo', 'launch_gui.py', ['--windowed', '--copy-metadata', 'font-rename-neo',
           '--add-data', str(translation)+';translations',
-          '--icon', str(ROOT/'assets'/'font-renamer.ico'), '--add-data', str(ROOT/'assets')+';assets'])
-    build('FontRenamerWorker', 'launch_worker.py', ['--console', '--collect-data', 'anyascii',
+          '--icon', str(ROOT/'assets'/'font-rename-neo.ico'), '--add-data', str(ROOT/'assets')+';assets'])
+    build('FontRenameNeoWorker', 'launch_worker.py', ['--console', '--collect-data', 'anyascii',
           '--collect-submodules', 'fontTools.ttLib.tables', '--hidden-import', 'fontTools.cffLib'])
-    app = DIST/'FontRenamer'
+    app = DIST/'FontRenameNeo'
     worker = app/'worker'
-    shutil.copytree(DIST/'FontRenamerWorker', worker, dirs_exist_ok=True)
+    shutil.copytree(DIST/'FontRenameNeoWorker', worker, dirs_exist_ok=True)
     shutil.copy2(ROOT/'LICENSE', app/'LICENSE')
     for document in ('README.md', 'CHANGELOG.md', 'VERSIONING.md'):
         shutil.copy2(ROOT/document, app/document)
@@ -49,7 +49,7 @@ def main():
     shutil.copytree(ROOT/'third_party_licenses', notices/'upstream', dirs_exist_ok=True)
     inventory = {}
     for name in ('PySide6', 'PySide6_Essentials', 'PySide6_Addons', 'shiboken6',
-                 'font-rename-fm', 'fonttools', 'anyascii', 'faust-cchardet', 'pyinstaller'):
+                 'font-rename-neo', 'fonttools', 'anyascii', 'faust-cchardet', 'pyinstaller'):
         dist = importlib.metadata.distribution(name)
         inventory[name] = {'version':dist.version, 'license':dist.metadata.get('License-Expression', dist.metadata.get('License', 'See included license texts'))}
         for entry in dist.files or []:
@@ -63,8 +63,8 @@ def main():
     if python_license.is_file():
         shutil.copy2(python_license, notices/'CPython-LICENSE.txt')
     (notices/'inventory.json').write_text(json.dumps(inventory, indent=2), encoding='utf-8')
-    from font_rename_gui import __version__
-    archive = shutil.make_archive(str(DIST/f'FontRenamerGUI-{__version__}-windows-x64'), 'zip', DIST, 'FontRenamer')
+    from font_rename_neo_gui import __version__
+    archive = shutil.make_archive(str(DIST/f'FontRenameNeoGUI-{__version__}-windows-x64'), 'zip', DIST, 'FontRenameNeo')
     print(archive)
 
 

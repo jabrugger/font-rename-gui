@@ -2,7 +2,7 @@
 
 The GUI code is MIT-licensed. The Windows portable distribution also includes:
 
-- **font-rename-fm**: MIT; original authors Jay Soren / Futuremotion and upstream contributors, fork maintained by jabrugger. Source: https://github.com/jabrugger/font-rename-fm/tree/v0.3.0
+- **Font Rename Neo (font-rename-neo package)**: MIT; original authors Jay Soren / Futuremotion and upstream contributors, fork maintained by jabrugger. Source: https://github.com/jabrugger/font-rename-neo/tree/v0.4.0
 - **PySide6, Qt and Shiboken**: upstream LGPL/GPL/commercial licensing as specified in their accompanying notices. This distribution uses the applicable open-source LGPL terms and keeps Qt shared libraries dynamically linked and replaceable. Source and licensing: https://code.qt.io/cgit/pyside/pyside-setup.git/ and https://www.qt.io/licensing/open-source-lgpl-obligations
 - **fontTools**: upstream MIT license. Source: https://github.com/fonttools/fonttools
 - **AnyAscii**: upstream ISC license. Source: https://github.com/anyascii/anyascii

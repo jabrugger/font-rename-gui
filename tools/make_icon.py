@@ -13,7 +13,7 @@ svg = b'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
 </svg>'''
 assets = ROOT/'assets'
 assets.mkdir(exist_ok=True)
-(assets/'font-renamer.svg').write_bytes(svg)
+(assets/'font-rename-neo.svg').write_bytes(svg)
 renderer = QSvgRenderer(QByteArray(svg))
 images=[]
 for size in (16,24,32,48,64,128,256):
@@ -33,4 +33,4 @@ entries=[]
 for size,data in images:
     entries.append(struct.pack('<BBBBHHII',size%256,size%256,0,0,1,32,len(data),offset))
     offset+=len(data)
-(assets/'font-renamer.ico').write_bytes(header+b''.join(entries)+b''.join(data for _,data in images))
+(assets/'font-rename-neo.ico').write_bytes(header+b''.join(entries)+b''.join(data for _,data in images))

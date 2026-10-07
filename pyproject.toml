@@ -3,26 +3,26 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "font-rename-gui"
-version = "0.3.0"
-description = "Windows desktop interface for the independent font-rename-fm CLI."
+name = "font-rename-neo-gui"
+version = "0.4.0"
+description = "Portable Windows GUI for Font Rename Neo: integrated preview, per-file results and configurable logs."
 requires-python = ">=3.12"
 license = "MIT"
 authors = [{name = "jabrugger"}]
 dependencies = [
   "PySide6>=6.10,<7",
-  "font-rename-fm @ git+https://github.com/jabrugger/font-rename-neo.git@v0.3.2"
+  "font-rename-neo @ git+https://github.com/jabrugger/font-rename-neo.git@v0.4.0"
 ]
 
 [project.optional-dependencies]
 build = ["pyinstaller>=6.20,<7"]
 
 [project.gui-scripts]
-font-rename-gui = "font_rename_gui.app:main"
+font-rename-neo-gui = "font_rename_neo_gui.app:main"
 
 [project.urls]
-Repository = "https://github.com/jabrugger/font-rename-gui"
+Repository = "https://github.com/jabrugger/font-rename-neo-gui"
 Engine = "https://github.com/jabrugger/font-rename-neo"
 
 [tool.setuptools.packages.find]
-include = ["font_rename_gui*"]
+include = ["font_rename_neo_gui*"]

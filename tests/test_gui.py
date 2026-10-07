@@ -11,8 +11,8 @@ from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
-from font_rename_gui.app import MainWindow
-from font_rename_gui.model import Options, build_arguments, unique_folders, default_log_directory
+from font_rename_neo_gui.app import MainWindow
+from font_rename_neo_gui.model import Options, build_arguments, unique_folders, default_log_directory
 
 
 def make_font(path):
@@ -177,7 +177,7 @@ class GuiTests(unittest.TestCase):
 
     def test_default_log_directory_uses_frozen_executable_not_working_folder(self):
         import sys
-        exe=self.folder/'portable'/'FontRenamer.exe'
+        exe=self.folder/'portable'/'FontRenameNeo.exe'
         with patch.object(sys,'frozen',True,create=True), patch.object(sys,'executable',str(exe)):
             self.assertEqual(default_log_directory(),exe.parent/'logs')
             args,log=build_arguments([self.folder],Options())
@@ -355,7 +355,7 @@ class GuiTests(unittest.TestCase):
 
     def test_footer_links_to_both_repositories(self):
         self.assertTrue(self.window.footer.openExternalLinks())
-        self.assertIn('href="https://github.com/jabrugger/font-rename-gui"',self.window.footer.text())
+        self.assertIn('href="https://github.com/jabrugger/font-rename-neo-gui"',self.window.footer.text())
         self.assertIn('href="https://github.com/jabrugger/font-rename-neo"',self.window.footer.text())
 
     def test_help_and_window_icon(self):
@@ -382,6 +382,15 @@ class GuiTests(unittest.TestCase):
         self.run_window(True)
         self.assertEqual(self.window.result,0)
         self.assertTrue((self.folder/'Test Regular.ttf').exists())
+
+    def test_neo_identity_is_separate_from_legacy(self):
+        from font_rename_neo_gui.model import worker_command
+        from font_rename_neo_gui import worker
+        self.assertEqual(self.window.windowTitle(), 'Font Rename Neo')
+        self.assertEqual(self.window.settings.applicationName(), 'FontRenameNeoGUI')
+        self.assertTrue(worker.engine.__name__.startswith('font_rename_neo.'))
+        self.assertIn('font_rename_neo_gui.worker', worker_command())
+        self.assertIn('font-rename-neo 0.4.0', self.window.footer.text())
 
 
 if __name__ == '__main__':

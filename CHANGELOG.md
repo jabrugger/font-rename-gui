@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0 - 2026-10-07
+
+- Rename the application, distribution, module, commands, executables, settings and logs to Font Rename Neo GUI. Pin only font-rename-neo 0.4.0.
+- Update documentation, download names and third-party notices.
+
 ## 0.3.0 - 2026-10-07
 
 - Keep table selection and detail contents synchronized after filtering and refreshes; label the selected file explicitly.

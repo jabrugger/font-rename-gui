@@ -4,7 +4,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from font_rename_fm import rename as engine
+from font_rename_neo import rename as engine
 
 
 def main(argv=None):
@@ -61,7 +61,7 @@ def main(argv=None):
             folders = sorted({p.parent for p in files}, key=lambda p: str(p).casefold())
             if not folders:
                 folders = [p.resolve() for p in args.files if p.is_dir()]
-            logs = {p: p/'BAK'/f'font_renamer[{datetime.now().date().isoformat()}].log' for p in folders}
+            logs = {p: p/'BAK'/f'font_rename_neo[{datetime.now().date().isoformat()}].log' for p in folders}
             # Validate all destinations before any font mutation.
             for log in logs.values():
                 if log.parent.is_symlink() or log.is_symlink():

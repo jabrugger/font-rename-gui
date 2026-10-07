@@ -120,15 +120,15 @@ class MainWindow(QMainWindow):
     def __init__(self, persist=True):
         super().__init__()
         self.persist = persist
-        self.settings = QSettings('jabrugger', 'FontRenamerGUI')
+        self.settings = QSettings('jabrugger', 'FontRenameNeoGUI')
         system_language = 'es' if QLocale.system().language() == QLocale.Language.Spanish else 'en'
         self.language = self.settings.value('language', system_language) if persist else 'es'
         if self.language not in TEXT:
             self.language = system_language
         app = QApplication.instance()
-        if not hasattr(app, '_font_renamer_translator'):
-            app._font_renamer_translator = QTranslator(app)
-        self.qt_translator = app._font_renamer_translator
+        if not hasattr(app, '_font_rename_neo_translator'):
+            app._font_rename_neo_translator = QTranslator(app)
+        self.qt_translator = app._font_rename_neo_translator
         self.runner = None
         self.cancel_temp = None
         self.cancel_file = None
@@ -137,8 +137,8 @@ class MainWindow(QMainWindow):
         self.running_apply = False
         self.close_pending = False
         self.result = None
-        self.setWindowTitle('Font Renamer')
-        self.setWindowIcon(QIcon(str(Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))/'assets'/'font-renamer.ico')))
+        self.setWindowTitle('Font Rename Neo')
+        self.setWindowIcon(QIcon(str(Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))/'assets'/'font-rename-neo.ico')))
         self.resize(1120, 940)
         self.setMinimumSize(940, 700)
         assets = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))/'assets'
@@ -195,7 +195,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(16)
         header = QHBoxLayout()
         heading = QVBoxLayout()
-        title = QLabel('Font Renamer')
+        title = QLabel('Font Rename Neo')
         title.setObjectName('title')
         heading.addWidget(title)
         heading.addWidget(self._label('subtitle'))
@@ -296,14 +296,14 @@ class MainWindow(QMainWindow):
             actions.addWidget(button)
         layout.addLayout(actions)
         try:
-            engine_version = version('font-rename-fm')
+            engine_version = version('font-rename-neo')
         except Exception:
             engine_version = '?'
         self.footer = QLabel(
-            f'<a href="https://github.com/jabrugger/font-rename-gui" style="color:#a2acba">'
+            f'<a href="https://github.com/jabrugger/font-rename-neo-gui" style="color:#a2acba">'
             f'GUI {__version__}</a> &nbsp; &middot; &nbsp; '
             f'<a href="https://github.com/jabrugger/font-rename-neo" style="color:#a2acba">'
-            f'font-rename-fm {engine_version}</a> &nbsp; &middot; &nbsp; MIT')
+            f'font-rename-neo {engine_version}</a> &nbsp; &middot; &nbsp; MIT')
         self.footer.setObjectName('muted')
         self.footer.setTextFormat(Qt.TextFormat.RichText)
         self.footer.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse |
@@ -445,7 +445,7 @@ class MainWindow(QMainWindow):
         if self._busy() or (apply and not self.skip_preview.isChecked() and self.preview_signature != self.signature()):
             return
         had_preview = self.preview_signature == self.signature()
-        temp = tempfile.TemporaryDirectory(prefix='font-renamer-gui-')
+        temp = tempfile.TemporaryDirectory(prefix='font-rename-neo-gui-')
         cancel_file = Path(temp.name) / 'cancel.flag'
         try:
             args, log = build_arguments(self.folder_paths(), self.options(), apply, cancel_file)
@@ -566,7 +566,7 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName('Font Renamer')
+    app.setApplicationName('Font Rename Neo')
     app.setStyle('Fusion')
     # Packaging diagnostics run only a preview on a caller-supplied test folder.
     diagnostic = len(sys.argv) == 4 and sys.argv[1] == '--preview-test'

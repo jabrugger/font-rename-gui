@@ -20,7 +20,7 @@ class Options:
         directory = Path(self.log_directory.strip()).expanduser().absolute() if self.log_directory.strip() else default_log_directory()
         if directory.exists() and not directory.is_dir():
             raise ValueError(f'Log location is not a folder: {directory}')
-        return directory / f'font_renamer[{datetime.now().date().isoformat()}].log'
+        return directory / f'font_rename_neo[{datetime.now().date().isoformat()}].log'
 
 
 def default_log_directory():
@@ -74,7 +74,7 @@ def build_arguments(folders, options, apply=False, cancel_file=None):
 
 def worker_command():
     if getattr(sys, 'frozen', False):
-        worker = Path(sys.executable).parent / 'worker' / 'FontRenamerWorker.exe'
+        worker = Path(sys.executable).parent / 'worker' / 'FontRenameNeoWorker.exe'
         if not worker.is_file():
             raise FileNotFoundError(f'Bundled engine not found: {worker}')
         return [str(worker)]
@@ -82,4 +82,4 @@ def worker_command():
     interpreter = Path(sys.executable)
     if interpreter.name.casefold() == 'pythonw.exe':
         interpreter = interpreter.with_name('python.exe')
-    return [str(interpreter), '-u', '-m', 'font_rename_gui.worker']
+    return [str(interpreter), '-u', '-m', 'font_rename_neo_gui.worker']

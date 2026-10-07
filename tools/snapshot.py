@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFontDatabase
-from font_rename_gui.app import MainWindow
+from font_rename_neo_gui.app import MainWindow
 
 app = QApplication([])
 for name in ('segoeui.ttf', 'consola.ttf'):
